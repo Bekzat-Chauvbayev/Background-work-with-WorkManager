@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.work.WorkInfo
 import com.example.bluromatic.BluromaticApplication
+import com.example.bluromatic.KEY_IMAGE_URI
 import com.example.bluromatic.data.BlurAmountData
 import com.example.bluromatic.data.BluromaticRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,19 +33,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-/**
- * [BlurViewModel] starts and stops the WorkManger and applies blur to the image. Also updates the
- * visibility states of the buttons depending on the states of the WorkManger.
- */
+
 class BlurViewModel(private val bluromaticRepository: BluromaticRepository) : ViewModel() {
 
     internal val blurAmount = BlurAmountData.blurAmount
 
     val blurUiState: StateFlow<BlurUiState> = bluromaticRepository.outputWorkInfo
         .map { info ->
+            val outputImageUri = info.outputData.getString(KEY_IMAGE_URI)
             when {
-                info.state.isFinished -> {
-                    BlurUiState.Complete(outputUri = "")
+                info.state.isFinished && !outputImageUri.isNullOrEmpty() -> {
+                    BlurUiState.Complete(outputUri = outputImageUri)
                 }
                 info.state == WorkInfo.State.CANCELLED -> {
                     BlurUiState.Default
@@ -56,18 +55,14 @@ class BlurViewModel(private val bluromaticRepository: BluromaticRepository) : Vi
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = BlurUiState.Default
         )
-    /**
-     * Call the method from repository to create the WorkRequest to apply the blur
-     * and save the resulting image
-     * @param blurLevel The amount to blur the image
-     */
+
     fun applyBlur(blurLevel: Int) {
         bluromaticRepository.applyBlur(blurLevel)
     }
 
-    /**
-     * Factory for [BlurViewModel] that takes [BluromaticRepository] as a dependency
-     */
+    fun cancelWork() {
+        bluromaticRepository.cancelWork()
+    }
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
